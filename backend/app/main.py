@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.routers import detect as detect_router
 from app.routers import account as account_router
+from app.routers.detect_blacklist_router import router as detect_bl_router
 from app.services.model_loader import load_model
 import logging
 import time
@@ -66,6 +67,7 @@ app.add_middleware(
 # Include routers
 app.include_router(detect_router.router)
 app.include_router(account_router.router)
+app.include_router(detect_bl_router)
 
 @app.on_event("startup")
 async def startup_event():
