@@ -149,10 +149,10 @@ async def _fetch_tx_from_etherscan(tx_hash: str) -> Dict[str, Any]:
         "tx_type": "erc721" if is_nft_tx else "normal",
     }
 
-
 # ================== ACCOUNT WITH BLACKLIST ==================
 @router.post("/account")
 async def detect_account_with_blacklist(body: DetectAccountIn):
+    # validate explain flags (giữ lại cho đồng bộ, dù route này không dùng model)
     if body.explain_with_llm and not body.explain:
         raise HTTPException(
             status_code=400,
@@ -204,32 +204,25 @@ async def detect_account_with_blacklist(body: DetectAccountIn):
             detail="Address not found on Etherscan and not present in blacklist",
         )
 
-    # 4) Tồn tại & không tagged -> chạy model như bình thường
-    detection_service = get_detection_service()
-    detection_start = time.time()
-    result = await detection_service.detect_account(
-        account_address=addr,
-        explain=body.explain,
-        explain_with_llm=body.explain_with_llm,
-        max_transactions=body.max_transactions,
-    )
-    detection_time = time.time() - detection_start
-
-    # Gắn info blacklist/etherscan (clean) vào explanation để UI có thể hiển thị
-    result.setdefault("blacklist", bl)
-    if "explanations" in result:
-        result["explanations"].setdefault("account", {})
-        result["explanations"]["account"]["blacklist"] = bl
-    else:
-        result["explanations"] = {"account": {"blacklist": bl}}
-
-    logger.info(
-        f"[detect-bl] Account detection completed via model: "
-        f"time={detection_time:.2f}s"
-    )
-    return result
-
-
+    # 4) Tồn tại & không tagged -> KHÔNG CHẠY MODEL,
+    #    chỉ trả về kết quả 'an toàn theo blacklist/etherscan'
+    return {
+        "account_address": addr,
+        "detection_mode": "blacklist_only",
+        "account_scam_probability": 0.0,
+        "risk_level": "low",
+        "blacklist": bl,
+        "model_used": None,
+        "explanations": {
+            "account": {
+                "reason": (
+                    "Address is not in local blacklist and not tagged as "
+                    "phishing/scam on Etherscan"
+                ),
+                "blacklist": bl,
+            }
+        },
+    }
 
 # ================== TRANSACTION WITH BLACKLIST ==================
 
